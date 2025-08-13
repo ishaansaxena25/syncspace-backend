@@ -1,7 +1,8 @@
 // filepath: d:\projects\syncspace-backend\src\services\auth.service.ts
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import { prisma } from "../lib/db.js";
-import type { RegisterInput } from "../schemas/auth.schema.js";
+import type { RegisterInput, LoginInput } from "../schemas/auth.schema.js";
 
 export class AuthService {
   async registerUser(data: RegisterInput) {
@@ -28,6 +29,30 @@ export class AuthService {
     });
 
     return user;
+  }
+
+  async loginUser(data: LoginInput) {
+    const user = await prisma.user.findUnique({
+      where: { email: data.email },
+    });
+
+    if (!user) {
+      throw new Error("Invalid credentials");
+    }
+
+    const validPassword = await bcrypt.compare(data.password, user.password);
+
+    if (!validPassword) {
+      throw new Error("Invalid credentials");
+    }
+
+    const token = jwt.sign(
+      { userId: user.id },
+      process.env.JWT_SECRET ?? "fallback-secret",
+      { expiresIn: "1d" }
+    );
+
+    return { token, user: { id: user.id, email: user.email } };
   }
 }
 
